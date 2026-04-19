@@ -16,15 +16,9 @@
 
     <div class="card text-center" id="setup-card">
         <h3 class="fw-bold mb-1">BDExplorer</h3>
-        <p class="text-muted small mb-4">Create your account and workspace.</p>
+        <p class="text-muted small mb-4" id="subtitle">Create your account and workspace.</p>
         
-        <!-- Loading State -->
-        <div id="loading" style="display:none; padding: 40px 0;">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-3 text-muted small fw-bold">Provisioning your secure vault...</p>
-        </div>
-
-        <!-- Registration Form -->
+        <!-- STATE 1: Registration Form -->
         <div id="form-area" class="text-start">
             <div class="row g-2 mb-3">
                 <div class="col-6">
@@ -51,10 +45,31 @@
                 Create Account & Workspace
             </button>
             
-            <div class="text-center mt-3">
-                <a href="http://127.0.0.1:5555" class="text-muted small text-decoration-none">Already have an account? Log in here.</a>
+            <div class="text-center mt-4">
+                <p class="text-muted small">Already have an account? Return to the main app to log in.</p>
             </div>
         </div>
+
+        <!-- STATE 2: Loading -->
+        <div id="loading" style="display:none; padding: 40px 0;">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 text-muted small fw-bold">Provisioning your secure vault...</p>
+        </div>
+
+        <!-- STATE 3: Success (No Redirects) -->
+        <div id="success-state" style="display:none; padding: 20px 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="#198754" class="bi bi-check-circle-fill mb-3" viewBox="0 0 16 16">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+            </svg>
+            <h4 class="fw-bold text-dark">Workspace Ready!</h4>
+            <p class="text-muted small">Your organization has been successfully created and you have been assigned as the Admin.</p>
+            
+            <div class="alert alert-success border-0 small mt-4 shadow-sm text-start">
+                <strong>Next Steps:</strong><br>
+                You can now safely close this tab, return to the main BDExplorer application, and log in with your new email and password.
+            </div>
+        </div>
+
     </div>
 
     <!-- 1. Load Supabase Library -->
@@ -82,6 +97,7 @@
             // Swap UI to loading state
             document.getElementById('form-area').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('subtitle').style.display = 'none';
 
             try {
                 // STEP 1: Sign Up the User in Supabase Auth
@@ -91,13 +107,16 @@
                 });
                 if (authError) throw authError;
 
-                // Supabase Requirement Check:
-                // If email confirmation is turned ON in Supabase, session will be null here.
+                // Supabase Requirement Check: If email confirmation is required
                 if (!authData.session) {
-                    alert("Account created! Please check your email to verify your account. Once verified, you can log in on the main app.");
-                    // Restore UI in case they want to try again
-                    document.getElementById('form-area').style.display = 'block';
                     document.getElementById('loading').style.display = 'none';
+                    const successDiv = document.getElementById('success-state');
+                    successDiv.innerHTML = `
+                        <h4 class="fw-bold text-dark mb-3">Check Your Email</h4>
+                        <p class="text-muted small">We've sent a verification link to <b>${email}</b>.</p>
+                        <p class="text-muted small">Please click the link to verify your account, then you can log in to the main app.</p>
+                    `;
+                    successDiv.style.display = 'block';
                     return;
                 }
 
@@ -122,23 +141,25 @@
                     }]);
                 if (profileError) throw profileError;
 
-                // SUCCESS: Redirect to the Main App
-                alert("Workspace created successfully! Redirecting you to the platform...");
-                window.location.href = "http://127.0.0.1:5555"; // Update this to your production URL later
+                // SUCCESS: Show the Success Screen (No Redirects!)
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('success-state').style.display = 'block';
+                
+                // Immediately sign them out of this specific Render page session 
+                // so the page remains a clean terminal for the next person if needed
+                await supabaseClient.auth.signOut();
 
             } catch (err) {
                 alert("Setup Error: " + err.message);
-                // Revert UI on error
+                // Revert UI on error so they can try again
                 document.getElementById('form-area').style.display = 'block';
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('subtitle').style.display = 'block';
             }
         }
 
-        // Attach event listener
+        // Attach event listener natively
         document.getElementById('btn-submit').addEventListener('click', createAccountAndOrg);
-        
-        // Expose globally just in case
-        window.createAccountAndOrg = createAccountAndOrg;
     </script>
 </body>
 </html>
