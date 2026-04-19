@@ -7,7 +7,7 @@
     <title>Create Organization | BDExplorer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Inter', sans-serif; }
+        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
         .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: none; padding: 40px; width: 100%; max-width: 450px; }
     </style>
 </head>
@@ -23,29 +23,28 @@
         </div>
 
         <div id="form-area">
-            <label class="form-label small fw-bold text-muted text-start w-100 uppercase" style="font-size: 10px;">Organization Name</label>
+            <label class="form-label small fw-bold text-muted text-start w-100" style="font-size: 10px; text-transform: uppercase;">Organization Name</label>
             <input type="text" id="org-name" class="form-control bg-light border-0 mb-3" placeholder="e.g., Acme Corp Analytics" required>
             
-            <label class="form-label small fw-bold text-muted text-start w-100 uppercase" style="font-size: 10px;">Your Full Name</label>
+            <label class="form-label small fw-bold text-muted text-start w-100" style="font-size: 10px; text-transform: uppercase;">Your Full Name</label>
             <input type="text" id="full-name" class="form-control bg-light border-0 mb-4" placeholder="Jane Doe" required>
             
-            <button class="btn btn-dark w-100 fw-bold py-2 rounded-pill" onclick="createOrganization()">
+            <!-- We remove onclick and use an ID instead for modern event listening -->
+            <button class="btn btn-dark w-100 fw-bold py-2 rounded-pill" id="btn-submit">
                 Create Organization & Proceed
             </button>
         </div>
     </div>
 
-    <!-- Add Supabase Script - MAKE SURE THIS IS THE FIRST SCRIPT -->
+    <!-- 1. Load Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- 2. Logic Script -->
     <script type="module">
-        // Inside a <script type="module"> block,
-        // you can safely re-declare the supabase client
-        // and access it in any function without namespace conflicts
-
+        // Replace these with your actual Supabase credentials
         const supabaseUrl = 'https://xaomobwzmosdeiykrtnh.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb21vYnd6bW9zZGVpeWtydG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MjM3MzgsImV4cCI6MjA5MjA5OTczOH0.spcrtDZpSIbVUBAVa01xHg5qNRQC-jFa7vHYdlAI9vY';
-
+        
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         async function createOrganization() {
@@ -57,11 +56,12 @@
             document.getElementById('form-area').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
-            // 1. Get Logged In User (Note: This will run on redirect from the main app)
+            // 1. Check Session
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session) {
                 alert("You are not logged in. Please log in via the main app first.");
-                return window.location.href = "YOUR_MAIN_APP_URL";
+                // Update this to your local or production main app URL
+                return window.location.href = "http://127.0.0.1:5555"; 
             }
 
             try {
@@ -71,6 +71,7 @@
                     .insert([{ name: orgName }])
                     .select()
                     .single();
+                
                 if (orgError) throw orgError;
 
                 // 3. Create Admin Profile
@@ -82,17 +83,25 @@
                         role: 'admin',
                         full_name: fullName
                     }]);
+                
                 if (profileError) throw profileError;
 
-                // 4. Redirect back to main app (Replace with YOUR actual app URL)
-                alert("Organization created successfully! You are the Admin.");
-                window.location.href = "YOUR_MAIN_APP_URL"; // Replace with main app URL
+                alert("Organization created successfully! Redirecting...");
+                window.location.href = "http://127.0.0.1:5555"; 
+
             } catch (err) {
                 alert("Error: " + err.message);
                 document.getElementById('form-area').style.display = 'block';
                 document.getElementById('loading').style.display = 'none';
             }
         }
+
+        // MODERN WAY: Attach the event listener inside the module
+        document.getElementById('btn-submit').addEventListener('click', createOrganization);
+
+        // ALTERNATIVE WAY: If you really want to use onclick in HTML, 
+        // you must attach the function to the window object:
+        // window.createOrganization = createOrganization;
     </script>
 </body>
 </html>
