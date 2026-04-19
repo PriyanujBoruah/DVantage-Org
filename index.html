@@ -140,17 +140,57 @@
         }
 
         window.handleCreate = async () => {
-            const name = document.getElementById('create-name').value;
-            const org = document.getElementById('create-org').value;
-            const email = document.getElementById('create-email').value;
+            const name = document.getElementById('create-name').value.trim();
+            const org = document.getElementById('create-org').value.trim();
+            const email = document.getElementById('create-email').value.trim();
             const password = document.getElementById('create-password').value;
-
+        
+            if (!name || !org || !email || !password) return alert("All fields are required.");
+        
             showState('loading');
+        
+            // STEP 1: Sign Up
             const { data: auth, error: aErr } = await supabase.auth.signUp({ email, password });
-            if (aErr) return alert(aErr.message);
-
-            const { data: oData } = await supabase.from('organizations').insert([{ name: org }]).select().single();
-            await supabase.from('profiles').insert([{ id: auth.user.id, org_id: oData.id, role: 'admin', full_name: name }]);
+            
+            if (aErr) {
+                alert("Auth Error: " + aErr.message);
+                return showState('create');
+            }
+        
+            if (!auth.user) {
+                alert("User creation failed. Please check if the user already exists.");
+                return showState('create');
+            }
+        
+            // STEP 2: Create Organization
+            // We add a retry-check here to ensure the Auth session has propagated
+            const { data: oData, error: oErr } = await supabase
+                .from('organizations')
+                .insert([{ name: org }])
+                .select()
+                .single();
+        
+            if (oErr) {
+                console.error("Full Org Error Object:", oErr);
+                alert("Organization Creation Failed: " + oErr.message);
+                return showState('create');
+            }
+        
+            // STEP 3: Create Profile
+            const { error: pErr } = await supabase
+                .from('profiles')
+                .insert([{ 
+                    id: auth.user.id, 
+                    org_id: oData.id, 
+                    role: 'admin', 
+                    full_name: name 
+                }]);
+        
+            if (pErr) {
+                console.error("Full Profile Error Object:", pErr);
+                alert("Profile Setup Failed: " + pErr.message);
+                return showState('create');
+            }
             
             showState('info', "Workspace Provisioned", "Your Admin account is ready. You can now log in to the main application.");
         };
