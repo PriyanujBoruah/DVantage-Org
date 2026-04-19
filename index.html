@@ -3,163 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Organization | BDExplorer</title>
+    <title>Workspace Portal | BDExplorer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: none; padding: 40px; width: 100%; max-width: 450px; }
-        .form-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .form-control { font-size: 14px; padding: 10px 15px; border-radius: 8px; }
+        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; padding: 20px; }
+        .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: none; padding: 40px; width: 100%; max-width: 500px; transition: all 0.3s ease; }
+        .form-label { font-size: 10px; text-transform: uppercase; font-weight: 700; color: #6c757d; margin-bottom: 4px; }
+        .member-row { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .member-row:last-child { border-bottom: none; }
+        .badge-admin { background: #e8f0fe; color: #0b57d0; font-size: 9px; }
+        .badge-user { background: #f8f9fa; color: #6c757d; font-size: 9px; }
     </style>
 </head>
 <body>
 
-    <div class="card text-center" id="setup-card">
-        <h3 class="fw-bold mb-1">BDExplorer</h3>
-        <p class="text-muted small mb-4" id="subtitle">Create your account and workspace.</p>
-        
-        <!-- STATE 1: Registration Form -->
-        <div id="form-area" class="text-start">
+    <div class="card shadow" id="main-card">
+        <!-- Header Zone -->
+        <div class="text-center mb-4">
+            <div id="portal-icon" class="rounded-circle bg-dark text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                <i class="fas fa-bolt"></i>
+            </div>
+            <h3 class="fw-bold mb-1" id="portal-title">BDExplorer</h3>
+            <p class="text-muted small" id="portal-subtitle">Workspace Management Portal</p>
+        </div>
+
+        <hr class="opacity-10 mb-4">
+
+        <!-- CONTENT ZONES (Controlled by JS) -->
+        <div id="loading-state" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+
+        <!-- STATE 1: CREATE NEW ORGANIZATION -->
+        <div id="create-state" style="display:none;">
             <div class="row g-2 mb-3">
                 <div class="col-6">
-                    <label class="form-label fw-bold text-muted">Full Name</label>
-                    <input type="text" id="full-name" class="form-control bg-light border-0" placeholder="Jane Doe" required>
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="create-name" class="form-control bg-light border-0" placeholder="Jane Doe">
                 </div>
                 <div class="col-6">
-                    <label class="form-label fw-bold text-muted">Organization Name</label>
-                    <input type="text" id="org-name" class="form-control bg-light border-0" placeholder="Acme Corp" required>
+                    <label class="form-label">Org Name</label>
+                    <input type="text" id="create-org" class="form-control bg-light border-0" placeholder="Acme Corp">
                 </div>
             </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-bold text-muted">Work Email</label>
-                <input type="email" id="email" class="form-control bg-light border-0" placeholder="name@company.com" required>
-            </div>
-
-            <div class="mb-4">
-                <label class="form-label fw-bold text-muted">Password</label>
-                <input type="password" id="password" class="form-control bg-light border-0" placeholder="Create a strong password" required>
-            </div>
-            
-            <button class="btn btn-dark w-100 fw-bold py-2 rounded-pill shadow-sm" id="btn-submit">
-                Create Account & Workspace
-            </button>
-            
-            <div class="text-center mt-4">
-                <p class="text-muted small">Already have an account? Return to the main app to log in.</p>
-            </div>
+            <input type="email" id="create-email" class="form-control bg-light border-0 mb-3" placeholder="Email">
+            <input type="password" id="create-password" class="form-control bg-light border-0 mb-4" placeholder="Password">
+            <button class="btn btn-dark w-100 rounded-pill fw-bold py-2" onclick="handleCreate()">Provision Workspace</button>
         </div>
 
-        <!-- STATE 2: Loading -->
-        <div id="loading" style="display:none; padding: 40px 0;">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-3 text-muted small fw-bold">Provisioning your secure vault...</p>
-        </div>
-
-        <!-- STATE 3: Success (No Redirects) -->
-        <div id="success-state" style="display:none; padding: 20px 0;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="#198754" class="bi bi-check-circle-fill mb-3" viewBox="0 0 16 16">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-            </svg>
-            <h4 class="fw-bold text-dark">Workspace Ready!</h4>
-            <p class="text-muted small">Your organization has been successfully created and you have been assigned as the Admin.</p>
-            
-            <div class="alert alert-success border-0 small mt-4 shadow-sm text-start">
-                <strong>Next Steps:</strong><br>
-                You can now safely close this tab, return to the main BDExplorer application, and log in with your new email and password.
+        <!-- STATE 2: JOIN EXISTING ORGANIZATION (Invite Link) -->
+        <div id="join-state" style="display:none;">
+            <div class="alert alert-primary border-0 small mb-4">
+                <i class="fas fa-info-circle me-2"></i> You've been invited to join <b id="join-org-name">...</b>
             </div>
+            <label class="form-label">Full Name</label>
+            <input type="text" id="join-user-name" class="form-control bg-light border-0 mb-3" placeholder="Jane Doe">
+            <input type="email" id="join-email" class="form-control bg-light border-0 mb-3" placeholder="Work Email">
+            <input type="password" id="join-password" class="form-control bg-light border-0 mb-4" placeholder="Choose Password">
+            <button class="btn btn-primary w-100 rounded-pill fw-bold py-2" onclick="handleJoin()">Join Organization</button>
         </div>
 
+        <!-- STATE 3: ADMIN DASHBOARD -->
+        <div id="admin-state" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="form-label">Team Members</span>
+                <span class="badge bg-success" style="font-size: 9px;">Active Workspace</span>
+            </div>
+            <div id="team-list" class="bg-light rounded-4 mb-4" style="max-height: 200px; overflow-y: auto;">
+                <!-- Team injected here -->
+            </div>
+            
+            <label class="form-label">Secure Invite Link</label>
+            <div class="input-group mb-3">
+                <input type="text" id="invite-link-box" class="form-control form-control-sm border-0 bg-light" readonly>
+                <button class="btn btn-dark btn-sm px-3" onclick="copyInvite()"><i class="fas fa-copy"></i></button>
+            </div>
+            <button class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm py-2" onclick="handleLogout()">Sign Out</button>
+        </div>
+
+        <!-- STATE 4: SUCCESS/INFO -->
+        <div id="info-state" style="display:none;" class="text-center">
+            <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+            <h5 class="fw-bold" id="info-title">Success!</h5>
+            <p class="small text-muted" id="info-body">Process complete.</p>
+        </div>
     </div>
 
-    <!-- 1. Load Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- 2. Logic Script -->
     <script type="module">
-        // --- REPLACE THESE WITH YOUR ACTUAL KEYS ---
         const supabaseUrl = 'https://xaomobwzmosdeiykrtnh.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb21vYnd6bW9zZGVpeWtydG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MjM3MzgsImV4cCI6MjA5MjA5OTczOH0.spcrtDZpSIbVUBAVa01xHg5qNRQC-jFa7vHYdlAI9vY';
-        // -------------------------------------------
-        
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        async function createAccountAndOrg() {
-            const fullName = document.getElementById('full-name').value.trim();
-            const orgName = document.getElementById('org-name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteOrgId = urlParams.get('org');
 
-            if (!fullName || !orgName || !email || !password) {
-                return alert("Please fill in all fields.");
+        async function init() {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            // 1. Are we in "Join" mode? (Someone clicked an invite link)
+            if (inviteOrgId && !session) {
+                showState('join');
+                const { data } = await supabase.from('organizations').select('name').eq('id', inviteOrgId).single();
+                if (data) document.getElementById('join-org-name').innerText = data.name;
+                return;
             }
 
-            // Swap UI to loading state
-            document.getElementById('form-area').style.display = 'none';
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('subtitle').style.display = 'none';
-
-            try {
-                // STEP 1: Sign Up the User in Supabase Auth
-                const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-                    email: email,
-                    password: password
-                });
-                if (authError) throw authError;
-
-                // Supabase Requirement Check: If email confirmation is required
-                if (!authData.session) {
-                    document.getElementById('loading').style.display = 'none';
-                    const successDiv = document.getElementById('success-state');
-                    successDiv.innerHTML = `
-                        <h4 class="fw-bold text-dark mb-3">Check Your Email</h4>
-                        <p class="text-muted small">We've sent a verification link to <b>${email}</b>.</p>
-                        <p class="text-muted small">Please click the link to verify your account, then you can log in to the main app.</p>
-                    `;
-                    successDiv.style.display = 'block';
-                    return;
-                }
-
-                const userId = authData.user.id;
-
-                // STEP 2: Create the Organization
-                const { data: orgData, error: orgError } = await supabaseClient
-                    .from('organizations')
-                    .insert([{ name: orgName }])
-                    .select()
-                    .single();
-                if (orgError) throw orgError;
-
-                // STEP 3: Create the Admin Profile
-                const { error: profileError } = await supabaseClient
-                    .from('profiles')
-                    .insert([{
-                        id: userId,
-                        org_id: orgData.id,
-                        role: 'admin',
-                        full_name: fullName
-                    }]);
-                if (profileError) throw profileError;
-
-                // SUCCESS: Show the Success Screen (No Redirects!)
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('success-state').style.display = 'block';
+            // 2. If logged in, check role
+            if (session) {
+                const { data: profile } = await supabase.from('profiles').select('*, organizations(name)').eq('id', session.user.id).single();
                 
-                // Immediately sign them out of this specific Render page session 
-                // so the page remains a clean terminal for the next person if needed
-                await supabaseClient.auth.signOut();
-
-            } catch (err) {
-                alert("Setup Error: " + err.message);
-                // Revert UI on error so they can try again
-                document.getElementById('form-area').style.display = 'block';
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('subtitle').style.display = 'block';
+                if (profile && profile.role === 'admin') {
+                    showState('admin');
+                    document.getElementById('portal-title').innerText = profile.organizations.name;
+                    document.getElementById('invite-link-box').value = window.location.origin + window.location.pathname + '?org=' + profile.org_id;
+                    loadTeam(profile.org_id);
+                } else {
+                    showState('info', "Access Restricted", "Please use the main application for data analysis. This portal is for Administrators.");
+                }
+                return;
             }
+
+            // 3. Default: Create Org
+            showState('create');
         }
 
-        // Attach event listener natively
-        document.getElementById('btn-submit').addEventListener('click', createAccountAndOrg);
+        function showState(state, title, body) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('create-state').style.display = (state === 'create' ? 'block' : 'none');
+            document.getElementById('join-state').style.display = (state === 'join' ? 'block' : 'none');
+            document.getElementById('admin-state').style.display = (state === 'admin' ? 'block' : 'none');
+            document.getElementById('info-state').style.display = (state === 'info' ? 'block' : 'none');
+            if (title) document.getElementById('info-title').innerText = title;
+            if (body) document.getElementById('info-body').innerText = body;
+        }
+
+        window.handleCreate = async () => {
+            const name = document.getElementById('create-name').value;
+            const org = document.getElementById('create-org').value;
+            const email = document.getElementById('create-email').value;
+            const password = document.getElementById('create-password').value;
+
+            showState('loading');
+            const { data: auth, error: aErr } = await supabase.auth.signUp({ email, password });
+            if (aErr) return alert(aErr.message);
+
+            const { data: oData } = await supabase.from('organizations').insert([{ name: org }]).select().single();
+            await supabase.from('profiles').insert([{ id: auth.user.id, org_id: oData.id, role: 'admin', full_name: name }]);
+            
+            showState('info', "Workspace Provisioned", "Your Admin account is ready. You can now log in to the main application.");
+        };
+
+        window.handleJoin = async () => {
+            const name = document.getElementById('join-user-name').value;
+            const email = document.getElementById('join-email').value;
+            const password = document.getElementById('join-password').value;
+
+            showState('loading');
+            const { data: auth, error: aErr } = await supabase.auth.signUp({ email, password });
+            if (aErr) return alert(aErr.message);
+
+            await supabase.from('profiles').insert([{ id: auth.user.id, org_id: inviteOrgId, role: 'user', full_name: name }]);
+            
+            showState('info', "Joined Successfully", "Welcome to the team! You can now log in to the main application.");
+        };
+
+        async function loadTeam(orgId) {
+            const { data } = await supabase.from('profiles').select('*').eq('org_id', orgId);
+            const list = document.getElementById('team-list');
+            list.innerHTML = data.map(m => `
+                <div class="member-row px-3">
+                    <div class="flex-grow-1 small fw-bold">${m.full_name}</div>
+                    <span class="badge ${m.role === 'admin' ? 'badge-admin' : 'badge-user'} rounded-pill">${m.role}</span>
+                </div>
+            `).join('');
+        }
+
+        window.copyInvite = () => {
+            navigator.clipboard.writeText(document.getElementById('invite-link-box').value);
+            alert("Invite link copied!");
+        };
+
+        window.handleLogout = async () => {
+            await supabase.auth.signOut();
+            window.location.href = window.location.origin + window.location.pathname;
+        };
+
+        init();
     </script>
 </body>
 </html>
