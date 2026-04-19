@@ -6,89 +6,139 @@
     <title>Create Organization | BDExplorer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+        body { background-color: #f0f4f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .card { border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: none; padding: 40px; width: 100%; max-width: 450px; }
+        .form-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .form-control { font-size: 14px; padding: 10px 15px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
     <div class="card text-center" id="setup-card">
-        <h3 class="fw-bold mb-1">Welcome to BDExplorer</h3>
-        <p class="text-muted small mb-4">Let's set up your workspace.</p>
+        <h3 class="fw-bold mb-1">BDExplorer</h3>
+        <p class="text-muted small mb-4">Create your account and workspace.</p>
         
-        <div id="loading" style="display:none;">
+        <!-- Loading State -->
+        <div id="loading" style="display:none; padding: 40px 0;">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Configuring secure vault...</p>
+            <p class="mt-3 text-muted small fw-bold">Provisioning your secure vault...</p>
         </div>
 
-        <div id="form-area">
-            <label class="form-label small fw-bold text-muted text-start w-100" style="font-size: 10px; text-transform: uppercase;">Organization Name</label>
-            <input type="text" id="org-name" class="form-control bg-light border-0 mb-3" placeholder="e.g., Acme Corp Analytics" required>
+        <!-- Registration Form -->
+        <div id="form-area" class="text-start">
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="form-label fw-bold text-muted">Full Name</label>
+                    <input type="text" id="full-name" class="form-control bg-light border-0" placeholder="Jane Doe" required>
+                </div>
+                <div class="col-6">
+                    <label class="form-label fw-bold text-muted">Organization Name</label>
+                    <input type="text" id="org-name" class="form-control bg-light border-0" placeholder="Acme Corp" required>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-muted">Work Email</label>
+                <input type="email" id="email" class="form-control bg-light border-0" placeholder="name@company.com" required>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold text-muted">Password</label>
+                <input type="password" id="password" class="form-control bg-light border-0" placeholder="Create a strong password" required>
+            </div>
             
-            <label class="form-label small fw-bold text-muted text-start w-100" style="font-size: 10px; text-transform: uppercase;">Your Full Name</label>
-            <input type="text" id="full-name" class="form-control bg-light border-0 mb-4" placeholder="Jane Doe" required>
-            
-            <button class="btn btn-dark w-100 fw-bold py-2 rounded-pill" onclick="createOrganization()">
-                Create Organization & Proceed
+            <button class="btn btn-dark w-100 fw-bold py-2 rounded-pill shadow-sm" id="btn-submit">
+                Create Account & Workspace
             </button>
+            
+            <div class="text-center mt-3">
+                <a href="http://127.0.0.1:5555" class="text-muted small text-decoration-none">Already have an account? Log in here.</a>
+            </div>
         </div>
     </div>
 
+    <!-- 1. Load Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- 2. Logic Script -->
     <script type="module">
+        // --- REPLACE THESE WITH YOUR ACTUAL KEYS ---
         const supabaseUrl = 'https://xaomobwzmosdeiykrtnh.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb21vYnd6bW9zZGVpeWtydG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MjM3MzgsImV4cCI6MjA5MjA5OTczOH0.spcrtDZpSIbVUBAVa01xHg5qNRQC-jFa7vHYdlAI9vY';
+        // -------------------------------------------
         
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        async function createOrganization() {
-            const orgName = document.getElementById('org-name').value.trim();
+        async function createAccountAndOrg() {
             const fullName = document.getElementById('full-name').value.trim();
+            const orgName = document.getElementById('org-name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
 
-            if (!orgName || !fullName) return alert("Please fill in all fields.");
+            if (!fullName || !orgName || !email || !password) {
+                return alert("Please fill in all fields.");
+            }
 
+            // Swap UI to loading state
             document.getElementById('form-area').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                alert("You are not logged in. Please log in via the main app first.");
-                return window.location.href = "http://127.0.0.1:5555"; 
-            }
-
             try {
+                // STEP 1: Sign Up the User in Supabase Auth
+                const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: password
+                });
+                if (authError) throw authError;
+
+                // Supabase Requirement Check:
+                // If email confirmation is turned ON in Supabase, session will be null here.
+                if (!authData.session) {
+                    alert("Account created! Please check your email to verify your account. Once verified, you can log in on the main app.");
+                    // Restore UI in case they want to try again
+                    document.getElementById('form-area').style.display = 'block';
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+
+                const userId = authData.user.id;
+
+                // STEP 2: Create the Organization
                 const { data: orgData, error: orgError } = await supabaseClient
                     .from('organizations')
                     .insert([{ name: orgName }])
                     .select()
                     .single();
-                
                 if (orgError) throw orgError;
 
+                // STEP 3: Create the Admin Profile
                 const { error: profileError } = await supabaseClient
                     .from('profiles')
                     .insert([{
-                        id: session.user.id,
+                        id: userId,
                         org_id: orgData.id,
                         role: 'admin',
                         full_name: fullName
                     }]);
-                
                 if (profileError) throw profileError;
 
-                alert("Organization created successfully! Redirecting...");
-                window.location.href = "http://127.0.0.1:5555"; 
+                // SUCCESS: Redirect to the Main App
+                alert("Workspace created successfully! Redirecting you to the platform...");
+                window.location.href = "http://127.0.0.1:5555"; // Update this to your production URL later
 
             } catch (err) {
-                alert("Error: " + err.message);
+                alert("Setup Error: " + err.message);
+                // Revert UI on error
                 document.getElementById('form-area').style.display = 'block';
                 document.getElementById('loading').style.display = 'none';
             }
         }
 
-        // THE MAGIC FIX: Expose the function to the HTML 'onclick' handler
-        window.createOrganization = createOrganization;
+        // Attach event listener
+        document.getElementById('btn-submit').addEventListener('click', createAccountAndOrg);
+        
+        // Expose globally just in case
+        window.createAccountAndOrg = createAccountAndOrg;
     </script>
 </body>
 </html>
