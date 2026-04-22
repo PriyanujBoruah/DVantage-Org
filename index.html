@@ -19,15 +19,17 @@
 
     <!-- LOGIN SCREEN -->
     <div id="login-screen" class="d-flex align-items-center justify-content-center vh-100">
-        <div class="card p-5 text-center" style="width: 400px;">
-            <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
-            <h4 class="fw-bold mb-1">Admin Portal</h4>
-            <p class="text-muted small mb-4">Enter your Organization ID to manage your licenses and usage.</p>
-            <input type="text" id="org-id-input" class="form-control form-control-lg bg-light border-0 mb-3 text-center fw-bold" placeholder="ORG ID (e.g. ACME_CORP)">
-            <button class="btn btn-dark w-100 py-2 rounded-pill fw-bold" onclick="loginAdmin()">
+        <div class="card p-5 text-center" style="width: 420px;">
+            <i class="fas fa-user-shield fa-3x text-primary mb-3"></i>
+            <h4 class="fw-bold mb-1">IT Admin Portal</h4>
+            <p class="text-muted small mb-4">Enter your Admin License Key to manage your organization's billing and seats.</p>
+            
+            <input type="text" id="license-key-input" class="form-control form-control-lg bg-light border-0 mb-3 text-center fw-bold font-monospace text-uppercase" placeholder="BDX-XXXX-XXXX-XXXX" style="letter-spacing: 1px;">
+            
+            <button class="btn btn-dark w-100 py-2 rounded-pill fw-bold" onclick="loginAdmin()" id="admin-login-btn">
                 Access Dashboard <i class="fas fa-arrow-right ms-2"></i>
             </button>
-            <div id="login-error" class="text-danger small mt-3" style="display:none;"></div>
+            <div id="login-error" class="text-danger small mt-3 fw-bold" style="display:none;"></div>
         </div>
     </div>
 
@@ -42,7 +44,7 @@
                     <small class="text-muted">License & Billing Management</small>
                 </div>
             </div>
-            <button class="btn btn-sm btn-outline-danger rounded-pill px-4" onclick="location.reload()">Sign Out</button>
+            <button class="btn btn-sm btn-outline-danger rounded-pill px-4 fw-bold" onclick="location.reload()">Sign Out</button>
         </nav>
 
         <div class="container-fluid py-4 px-4" style="max-width: 1200px;">
@@ -75,16 +77,17 @@
             </div>
 
             <!-- License Management Table -->
-            <div class="card p-0 overflow-hidden">
+            <div class="card p-0 overflow-hidden shadow-sm">
                 <div class="bg-light p-3 border-bottom d-flex justify-content-between align-items-center">
                     <h6 class="m-0 fw-bold"><i class="fas fa-key text-secondary me-2"></i> Seat Allocation & Usage</h6>
-                    <button class="btn btn-sm btn-light border shadow-sm" onclick="loadDashboardData()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    <button class="btn btn-sm btn-light border shadow-sm fw-bold" onclick="loadDashboardData()"><i class="fas fa-sync-alt me-1"></i> Refresh</button>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4">License Key</th>
+                                <th>Role</th>
                                 <th>Assigned To (Alias)</th>
                                 <th>Credits Used (This Cycle)</th>
                                 <th>Expiration</th>
@@ -93,7 +96,7 @@
                             </tr>
                         </thead>
                         <tbody id="license-table-body">
-                            <tr><td colspan="6" class="text-center p-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Loading licenses...</td></tr>
+                            <tr><td colspan="7" class="text-center p-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Loading licenses...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -118,31 +121,63 @@
         };
 
         async function loginAdmin() {
-            const orgInput = document.getElementById('org-id-input').value.trim().toUpperCase();
+            const licenseInput = document.getElementById('license-key-input').value.trim().toUpperCase();
             const errorDiv = document.getElementById('login-error');
+            const btn = document.getElementById('admin-login-btn');
             
-            if (!orgInput) return;
+            if (!licenseInput) return;
             errorDiv.style.display = 'none';
+            
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i> Verifying...';
+            btn.disabled = true;
 
             try {
-                const url = `https://api.airtable.com/v0/${BASE_ID}/Organizations?filterByFormula={Org ID}='${orgInput}'`;
+                // 1. Find the License Key in Airtable
+                const url = `https://api.airtable.com/v0/${BASE_ID}/Licenses?filterByFormula={License Key}='${licenseInput}'`;
                 const response = await fetch(url, { headers });
                 const data = await response.json();
 
                 if (data.records && data.records.length > 0) {
-                    currentOrgId = orgInput;
+                    const fields = data.records[0].fields;
+                    
+                    // 2. Security Check: Is this an Admin key?
+                    if (fields['Role'] !== 'Admin') {
+                        errorDiv.innerText = "Access Denied: This license key does not have administrator privileges.";
+                        errorDiv.style.display = 'block';
+                        btn.innerHTML = ogHtml;
+                        btn.disabled = false;
+                        return;
+                    }
+                    
+                    // 3. Status Check: Ensure key isn't revoked
+                    if (fields['Status'] === 'Revoked') {
+                        errorDiv.innerText = "Access Denied: This license key has been revoked.";
+                        errorDiv.style.display = 'block';
+                        btn.innerHTML = ogHtml;
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    // 4. Success! Extract the Org ID and load dashboard
+                    currentOrgId = fields['Org ID'];
+                    
                     document.getElementById('login-screen').style.display = 'none';
                     document.getElementById('dashboard-screen').style.display = 'block';
-                    document.getElementById('dash-org-name').innerText = `Organization: ${orgInput}`;
+                    document.getElementById('dash-org-name').innerText = `Organization: ${currentOrgId}`;
+                    
                     loadDashboardData();
                 } else {
-                    errorDiv.innerText = "Organization ID not found.";
+                    errorDiv.innerText = "Invalid License Key.";
                     errorDiv.style.display = 'block';
                 }
             } catch (err) {
                 errorDiv.innerText = "Connection error. Check console.";
                 errorDiv.style.display = 'block';
                 console.error(err);
+            } finally {
+                btn.innerHTML = ogHtml;
+                btn.disabled = false;
             }
         }
 
@@ -152,6 +187,12 @@
                 const orgUrl = `https://api.airtable.com/v0/${BASE_ID}/Organizations?filterByFormula={Org ID}='${currentOrgId}'`;
                 const orgRes = await fetch(orgUrl, { headers });
                 const orgData = await orgRes.json();
+                
+                if (!orgData.records || orgData.records.length === 0) {
+                    alert("Critical Error: Billing profile for this organization is missing.");
+                    return;
+                }
+                
                 const orgRecord = orgData.records[0].fields;
 
                 const maxC = orgRecord['Max Credits'] || 0;
@@ -185,9 +226,17 @@
                 
                 let activeCount = 0;
 
+                // Sort so Admins appear at the top, then sort by Key
+                licData.records.sort((a, b) => {
+                    if (a.fields['Role'] === 'Admin' && b.fields['Role'] !== 'Admin') return -1;
+                    if (a.fields['Role'] !== 'Admin' && b.fields['Role'] === 'Admin') return 1;
+                    return a.fields['License Key'].localeCompare(b.fields['License Key']);
+                });
+
                 licData.records.forEach(rec => {
                     const f = rec.fields;
                     const status = f['Status'] || 'Unknown';
+                    const role = f['Role'] || 'User';
                     const used = usageMap[f['License Key']] || 0;
                     
                     if (status === 'Active') activeCount++;
@@ -197,19 +246,23 @@
                     if (status === 'Active') badgeClass = 'bg-success';
                     if (status === 'Revoked') badgeClass = 'bg-danger';
                     if (status === 'Available') badgeClass = 'bg-primary';
+                    
+                    // Role Badge
+                    const roleBadge = role === 'Admin' ? '<span class="badge bg-dark">Admin</span>' : '<span class="badge bg-light text-dark border">User</span>';
 
                     tbody.innerHTML += `
                         <tr>
                             <td class="ps-4 fw-bold font-monospace text-muted">${f['License Key']}</td>
+                            <td>${roleBadge}</td>
                             <td>
-                                <div class="fw-bold">${f['Alias'] || '<span class="text-muted italic">Unassigned</span>'}</div>
-                                <div class="text-muted" style="font-size: 10px;">${f['Active Device ID'] ? 'Device Bound' : 'No Device'}</div>
+                                <div class="fw-bold text-dark">${f['Alias'] || '<span class="text-muted italic">Unassigned</span>'}</div>
+                                <div class="text-muted" style="font-size: 10px;">${f['Active Device ID'] ? '<i class="fas fa-laptop me-1"></i> Device Bound' : 'No Device'}</div>
                             </td>
-                            <td><span class="badge bg-light text-dark border">${used.toLocaleString()}</span></td>
-                            <td class="text-muted">${f['Valid Till'] || 'Perpetual'}</td>
+                            <td><span class="badge bg-light text-dark border shadow-sm">${used.toLocaleString()}</span></td>
+                            <td class="text-muted" style="font-size: 12px;">${f['Valid Till'] || 'Perpetual'}</td>
                             <td><span class="badge badge-status ${badgeClass}">${status}</span></td>
                             <td class="text-end pe-4">
-                                <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateLicenseStatus('${rec.id}', this.value)">
+                                <select class="form-select form-select-sm d-inline-block w-auto shadow-sm" onchange="updateLicenseStatus('${rec.id}', this.value)">
                                     <option value="" disabled selected>Change Status...</option>
                                     <option value="Available">Set to Available (Unbind)</option>
                                     <option value="Revoked">Revoke Access</option>
@@ -231,7 +284,7 @@
             if (!confirm(`Are you sure you want to change this license to ${newStatus}?`)) return;
 
             // If an Admin makes a license Available or Revokes it, we MUST wipe the Device ID 
-            // so it can be reassigned to a new computer!
+            // so it can be reassigned to a new computer (or permanently blocked)
             const patchData = {
                 "fields": {
                     "Status": newStatus,
@@ -249,8 +302,8 @@
                 });
 
                 if (response.ok) {
-                    alert(`License successfully updated to ${newStatus}.`);
-                    loadDashboardData(); // Refresh table
+                    // Refresh table silently
+                    loadDashboardData(); 
                 } else {
                     const err = await response.json();
                     alert("Update failed: " + err.error.message);
