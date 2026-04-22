@@ -1,20 +1,264 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>BDExplorer - Get Access</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BDExplorer | Admin Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 50px; background: #f0f4f9; }
-        .hero { text-align: center; margin-bottom: 30px; }
-        iframe { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f8; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .stat-card { border-left: 4px solid #0b57d0; }
+        .table th { font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.5px; }
+        .table td { vertical-align: middle; font-size: 13px; color: #333; }
+        .badge-status { font-size: 10px; padding: 4px 8px; border-radius: 6px; }
     </style>
 </head>
 <body>
-    <div class="hero">
-        <h1>Welcome to BDExplorer</h1>
-        <p>Create your account below to unlock the desktop workbench.</p>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="d-flex align-items-center justify-content-center vh-100">
+        <div class="card p-5 text-center" style="width: 400px;">
+            <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
+            <h4 class="fw-bold mb-1">Admin Portal</h4>
+            <p class="text-muted small mb-4">Enter your Organization ID to manage your licenses and usage.</p>
+            <input type="text" id="org-id-input" class="form-control form-control-lg bg-light border-0 mb-3 text-center fw-bold" placeholder="ORG ID (e.g. ACME_CORP)">
+            <button class="btn btn-dark w-100 py-2 rounded-pill fw-bold" onclick="loginAdmin()">
+                Access Dashboard <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+            <div id="login-error" class="text-danger small mt-3" style="display:none;"></div>
+        </div>
     </div>
-    
-    <!-- Embed your Airtable Form Link here -->
-    <iframe class="airtable-embed" src="https://airtable.com/embed/appAahxBpBlzrLC9Z/pagxtDzRha8ukMATM/form" frameborder="0" onmousewheel="" width="100%" height="533" style="background: transparent; border: 1px solid #ccc;"></iframe>    
+
+    <!-- DASHBOARD SCREEN -->
+    <div id="dashboard-screen" style="display: none;">
+        <!-- Header -->
+        <nav class="navbar bg-white border-bottom px-4 py-3 shadow-sm">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-building fa-2x text-primary me-3"></i>
+                <div>
+                    <h5 class="m-0 fw-bold" id="dash-org-name">Loading...</h5>
+                    <small class="text-muted">License & Billing Management</small>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-outline-danger rounded-pill px-4" onclick="location.reload()">Sign Out</button>
+        </nav>
+
+        <div class="container-fluid py-4 px-4" style="max-width: 1200px;">
+            
+            <!-- Top Stats Row -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card stat-card p-4">
+                        <h6 class="text-muted small text-uppercase fw-bold mb-2">Vantage Credits Remaining</h6>
+                        <h2 class="fw-bold m-0 text-dark" id="stat-credits">--</h2>
+                        <div class="progress mt-3" style="height: 6px;">
+                            <div id="credit-progress" class="progress-bar bg-primary" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card p-4" style="border-left-color: #198754;">
+                        <h6 class="text-muted small text-uppercase fw-bold mb-2">Total Active Seats</h6>
+                        <h2 class="fw-bold m-0 text-dark" id="stat-seats">--</h2>
+                        <small class="text-success mt-2"><i class="fas fa-users me-1"></i> Analysts connected</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card p-4" style="border-left-color: #ffc107;">
+                        <h6 class="text-muted small text-uppercase fw-bold mb-2">Current Billing Cycle</h6>
+                        <h2 class="fw-bold m-0 text-dark" id="stat-cycle">--</h2>
+                        <small class="text-muted mt-2"><i class="fas fa-calendar me-1"></i> Auto-resets on the 1st</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- License Management Table -->
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-light p-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold"><i class="fas fa-key text-secondary me-2"></i> Seat Allocation & Usage</h6>
+                    <button class="btn btn-sm btn-light border shadow-sm" onclick="loadDashboardData()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">License Key</th>
+                                <th>Assigned To (Alias)</th>
+                                <th>Credits Used (This Cycle)</th>
+                                <th>Expiration</th>
+                                <th>Status</th>
+                                <th class="text-end pe-4">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="license-table-body">
+                            <tr><td colspan="6" class="text-center p-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Loading licenses...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Airtable Logic -->
+    <script>
+        // ==========================================
+        // ⚠️ CONFIGURATION: Add your Airtable Credentials here
+        // ==========================================
+        const AIRTABLE_PAT = "pathphSp4T0ww8Uau.97c8135f8ab600490907871fd12334f4a7fe36ccd883fc48dc496faf57900dc9"; 
+        const BASE_ID = "appAahxBpBlzrLC9Z";
+        
+        let currentOrgId = "";
+
+        const headers = {
+            "Authorization": `Bearer ${AIRTABLE_PAT}`,
+            "Content-Type": "application/json"
+        };
+
+        async function loginAdmin() {
+            const orgInput = document.getElementById('org-id-input').value.trim().toUpperCase();
+            const errorDiv = document.getElementById('login-error');
+            
+            if (!orgInput) return;
+            errorDiv.style.display = 'none';
+
+            try {
+                const url = `https://api.airtable.com/v0/${BASE_ID}/Organizations?filterByFormula={Org ID}='${orgInput}'`;
+                const response = await fetch(url, { headers });
+                const data = await response.json();
+
+                if (data.records && data.records.length > 0) {
+                    currentOrgId = orgInput;
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('dashboard-screen').style.display = 'block';
+                    document.getElementById('dash-org-name').innerText = `Organization: ${orgInput}`;
+                    loadDashboardData();
+                } else {
+                    errorDiv.innerText = "Organization ID not found.";
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.innerText = "Connection error. Check console.";
+                errorDiv.style.display = 'block';
+                console.error(err);
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                // 1. Fetch Org Data (Billing)
+                const orgUrl = `https://api.airtable.com/v0/${BASE_ID}/Organizations?filterByFormula={Org ID}='${currentOrgId}'`;
+                const orgRes = await fetch(orgUrl, { headers });
+                const orgData = await orgRes.json();
+                const orgRecord = orgData.records[0].fields;
+
+                const maxC = orgRecord['Max Credits'] || 0;
+                const remC = orgRecord['Credits'] || 0;
+                const pct = maxC > 0 ? (remC / maxC) * 100 : 0;
+
+                document.getElementById('stat-credits').innerText = remC.toLocaleString();
+                document.getElementById('credit-progress').style.width = `${pct}%`;
+                document.getElementById('stat-cycle').innerText = orgRecord['Last Reset Month'] || "New";
+
+                // 2. Fetch Usage Data (To see who used what this month)
+                const usageUrl = `https://api.airtable.com/v0/${BASE_ID}/User Usage?filterByFormula={Org ID}='${currentOrgId}'`;
+                const usageRes = await fetch(usageUrl, { headers });
+                const usageData = await usageRes.json();
+                
+                // Create a map of License Key -> Credits Used
+                const usageMap = {};
+                if (usageData.records) {
+                    usageData.records.forEach(r => {
+                        usageMap[r.fields['License Key']] = r.fields['Credits Used'] || 0;
+                    });
+                }
+
+                // 3. Fetch Licenses
+                const licUrl = `https://api.airtable.com/v0/${BASE_ID}/Licenses?filterByFormula={Org ID}='${currentOrgId}'`;
+                const licRes = await fetch(licUrl, { headers });
+                const licData = await licRes.json();
+
+                const tbody = document.getElementById('license-table-body');
+                tbody.innerHTML = '';
+                
+                let activeCount = 0;
+
+                licData.records.forEach(rec => {
+                    const f = rec.fields;
+                    const status = f['Status'] || 'Unknown';
+                    const used = usageMap[f['License Key']] || 0;
+                    
+                    if (status === 'Active') activeCount++;
+
+                    // Status Badge Styling
+                    let badgeClass = 'bg-secondary';
+                    if (status === 'Active') badgeClass = 'bg-success';
+                    if (status === 'Revoked') badgeClass = 'bg-danger';
+                    if (status === 'Available') badgeClass = 'bg-primary';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="ps-4 fw-bold font-monospace text-muted">${f['License Key']}</td>
+                            <td>
+                                <div class="fw-bold">${f['Alias'] || '<span class="text-muted italic">Unassigned</span>'}</div>
+                                <div class="text-muted" style="font-size: 10px;">${f['Active Device ID'] ? 'Device Bound' : 'No Device'}</div>
+                            </td>
+                            <td><span class="badge bg-light text-dark border">${used.toLocaleString()}</span></td>
+                            <td class="text-muted">${f['Valid Till'] || 'Perpetual'}</td>
+                            <td><span class="badge badge-status ${badgeClass}">${status}</span></td>
+                            <td class="text-end pe-4">
+                                <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateLicenseStatus('${rec.id}', this.value)">
+                                    <option value="" disabled selected>Change Status...</option>
+                                    <option value="Available">Set to Available (Unbind)</option>
+                                    <option value="Revoked">Revoke Access</option>
+                                </select>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('stat-seats').innerText = `${activeCount} / ${licData.records.length}`;
+
+            } catch (err) {
+                console.error("Dashboard Load Error:", err);
+                alert("Failed to load dashboard data.");
+            }
+        }
+
+        async function updateLicenseStatus(recordId, newStatus) {
+            if (!confirm(`Are you sure you want to change this license to ${newStatus}?`)) return;
+
+            // If an Admin makes a license Available or Revokes it, we MUST wipe the Device ID 
+            // so it can be reassigned to a new computer!
+            const patchData = {
+                "fields": {
+                    "Status": newStatus,
+                    "Active Device ID": "",
+                    "Alias": ""
+                }
+            };
+
+            try {
+                const url = `https://api.airtable.com/v0/${BASE_ID}/Licenses/${recordId}`;
+                const response = await fetch(url, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify(patchData)
+                });
+
+                if (response.ok) {
+                    alert(`License successfully updated to ${newStatus}.`);
+                    loadDashboardData(); // Refresh table
+                } else {
+                    const err = await response.json();
+                    alert("Update failed: " + err.error.message);
+                }
+            } catch (error) {
+                alert("Network error.");
+            }
+        }
+    </script>
 </body>
 </html>
