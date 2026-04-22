@@ -124,60 +124,77 @@
             const licenseInput = document.getElementById('license-key-input').value.trim().toUpperCase();
             const errorDiv = document.getElementById('login-error');
             const btn = document.getElementById('admin-login-btn');
+            const loginScreen = document.getElementById('login-screen');
+            const dashboardScreen = document.getElementById('dashboard-screen');
             
-            if (!licenseInput) return;
+            // 1. Validation: Don't run if input is empty
+            if (!licenseInput) {
+                errorDiv.innerText = "Please enter a license key.";
+                errorDiv.style.display = 'block';
+                return;
+            }
+        
             errorDiv.style.display = 'none';
             
-            const ogHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i> Verifying...';
+            // 2. UI Feedback: Show loading state
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i> Authenticating...';
             btn.disabled = true;
-
+        
             try {
-                // 1. Find the License Key in Airtable
+                // 3. Query Airtable for this specific License Key
                 const url = `https://api.airtable.com/v0/${BASE_ID}/Licenses?filterByFormula={License Key}='${licenseInput}'`;
                 const response = await fetch(url, { headers });
                 const data = await response.json();
-
+        
                 if (data.records && data.records.length > 0) {
                     const fields = data.records[0].fields;
                     
-                    // 2. Security Check: Is this an Admin key?
+                    // 4. Security Check: Role must be 'Admin'
                     if (fields['Role'] !== 'Admin') {
-                        errorDiv.innerText = "Access Denied: This license key does not have administrator privileges.";
+                        errorDiv.innerText = "Access Denied: This key does not have administrator privileges.";
                         errorDiv.style.display = 'block';
-                        btn.innerHTML = ogHtml;
-                        btn.disabled = false;
                         return;
                     }
                     
-                    // 3. Status Check: Ensure key isn't revoked
+                    // 5. Status Check: Key must not be 'Revoked'
                     if (fields['Status'] === 'Revoked') {
-                        errorDiv.innerText = "Access Denied: This license key has been revoked.";
+                        errorDiv.innerText = "Access Denied: This administrator key has been revoked.";
                         errorDiv.style.display = 'block';
-                        btn.innerHTML = ogHtml;
-                        btn.disabled = false;
                         return;
                     }
-
-                    // 4. Success! Extract the Org ID and load dashboard
+        
+                    // 6. SUCCESS: Transition UI
+                    console.log("[Admin] Success. Authorized for Org:", fields['Org ID']);
                     currentOrgId = fields['Org ID'];
                     
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('dashboard-screen').style.display = 'block';
+                    // --- THE CRITICAL FIX: Hide Login & Show Dashboard ---
+                    // We must remove 'd-flex' because Bootstrap's !important rule overrides display: none
+                    loginScreen.classList.remove('d-flex');
+                    loginScreen.style.display = 'none';
+                    
+                    // Show the dashboard and set the Org Name in the header
+                    dashboardScreen.style.display = 'block';
                     document.getElementById('dash-org-name').innerText = `Organization: ${currentOrgId}`;
                     
+                    // Trigger the data load for stats and the table
                     loadDashboardData();
+        
                 } else {
+                    // No record found matching that key
                     errorDiv.innerText = "Invalid License Key.";
                     errorDiv.style.display = 'block';
                 }
             } catch (err) {
-                errorDiv.innerText = "Connection error. Check console.";
+                console.error("[Admin Auth Error]", err);
+                errorDiv.innerText = "Connection Error: Could not reach Airtable.";
                 errorDiv.style.display = 'block';
-                console.error(err);
             } finally {
-                btn.innerHTML = ogHtml;
-                btn.disabled = false;
+                // Restore button state if not successful
+                if (loginScreen.style.display !== 'none') {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
             }
         }
 
